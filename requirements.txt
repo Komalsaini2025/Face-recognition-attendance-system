@@ -1,4 +1,4 @@
 streamlit
 opencv-python-headless
 pip install opencv
-
+pip install --upgrade pip

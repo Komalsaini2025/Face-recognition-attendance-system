@@ -2,9 +2,7 @@ streamlit
 opencv-python-headless
 numpy
 pandas
-face_recognition
-os
-pickle
+face_recognitionos
 datetime
 pyttsx3
 

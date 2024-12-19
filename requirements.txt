@@ -1,4 +1,4 @@
 streamlit
 opencv-python-headless
-git commit -m "Add requirements.txt for deployment"
-git push
+pip install opencv
+

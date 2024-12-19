@@ -1,4 +1,13 @@
 streamlit
 opencv-python-headless
-pip install opencv
-pip install --upgrade pip
+numpy
+pandas
+face_recognition
+os
+pickle
+datetime
+pyttsx3
+
+git add requirements.txt
+git commit -m "Fix requirements.txt file with valid package names"
+git push

@@ -2,8 +2,7 @@ streamlit
 opencv-python-headless
 numpy
 pandas
-face_recognitionos
-datetime
-pyttsx3
-pip install upgrade--pip
+
+
+
 

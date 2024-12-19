@@ -8,6 +8,4 @@ pickle
 datetime
 pyttsx3
 
-git add requirements.txt
-git commit -m "Fix requirements.txt file with valid package names"
-git push
+

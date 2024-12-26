@@ -6,6 +6,7 @@ import pickle
 from datetime import datetime
 import pandas as pd
 import pyttsx3
+import pythoncom
 
 # Initialize variables
 attendance_log = []
@@ -15,6 +16,7 @@ ENCODINGS_FILE = 'face_encodings.pkl'
 ATTENDANCE_FILE = 'attendance.csv'
 
 # Initialize the text-to-speech engine
+pythoncom.CoInitialize()
 engine = pyttsx3.init()
 
 # Function to speak text
@@ -30,58 +32,59 @@ else:
     known_encodings = []
     known_names = []
 
+def show_welcome_screen():
+    welcome_screen = np.zeros((500, 800, 3), dtype=np.uint8)
+    text = "Welcome to the Face Recognition Attendance App"
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 1
+    color = (255, 255, 255)  # White
+    thickness = 2
+    text_size = cv2.getTextSize(text, font, font_scale, thickness)[0]
+    text_x = (welcome_screen.shape[1] - text_size[0]) // 2
+    text_y = (welcome_screen.shape[0] + text_size[1]) // 2
+    cv2.putText(welcome_screen, text, (text_x, text_y), font, font_scale, color, thickness)
+    cv2.imshow('Welcome Screen', welcome_screen)
+    speak("Welcome to the Face Recognition Attendance App")
+    cv2.waitKey(3000)
+    cv2.destroyWindow('Welcome Screen')
+
+
 # Function to mark attendance
-def markAttendance(name):
+def mark_attendance(name):
     now = datetime.now()
-    dtString = now.strftime('%H:%M:%S')
-    if name not in [entry[0] for entry in attendance_log]:
-        attendance_log.append([name, dtString])
-        print(f"Attendance marked for {name} at {dtString}")
+    date_str = now.strftime('%Y-%m-%d')
+    time_str = now.strftime('%H:%M:%S')
+    if not any(entry[0] == name and entry[2] == date_str for entry in attendance_log):
+        attendance_log.append([name, time_str, date_str])
+        print(f"Attendance marked for {name} on {date_str} at {time_str}")
+        speak(f"Attendance marked for {name}. Thank you!")
     else:
-        print(f"{name} is already marked present.")
+        print(f"{name} is already marked present on {date_str}.")
 
-# Function to register a new face
-def register_face(frame, face_location):
-    top, right, bottom, left = face_location
-    # Scale back up to the original frame size
-    top, right, bottom, left = top * 4, right * 4, bottom * 4, left * 4
+# Function to save attendance
+def save_attendance():
+    attendance_df = pd.DataFrame(attendance_log, columns=["Name", "Time", "Date"])
+    if os.path.exists(ATTENDANCE_FILE):
+        existing_df = pd.read_csv(ATTENDANCE_FILE)
+        attendance_df = pd.concat([existing_df, attendance_df]).drop_duplicates()
+    attendance_df.to_csv(ATTENDANCE_FILE, index=False)
+    print(f"Attendance saved to: {os.path.abspath(ATTENDANCE_FILE)}")
 
-    # Extract the face image
-    face_image = frame[top:bottom, left:right]
+# Blink detection parameters
+EAR_THRESHOLD = 0.2
+CONSECUTIVE_FRAMES = 3
+blink_counters = {}
+blink_states = {}
 
-    # Convert the face image to RGB
-    face_image = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
+# Load Haar Cascade for eye detection
+eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
 
-    # Get face encodings
-    face_encodings = face_recognition.face_encodings(face_image)
-
-    if face_encodings:  # Check if encoding was successful
-        known_encodings.append(face_encodings[0])
-        name = input("Enter the name of the person: ")
-        known_names.append(name.capitalize())
-        print(f"Face registered for {name}.")
-
-        # Speak the registered name and thank you message
-        speak(f"Face registered for {name}. Thank you!")
-
-        # Save the encodings and names to a file
-        with open(ENCODINGS_FILE, 'wb') as f:
-            pickle.dump((known_encodings, known_names), f)
-        print("Encodings saved.")
-    else:
-        print("No face encoding found. Ensure the face is clearly visible.")
-
-# Open webcam
+# Main application logic
 cap = cv2.VideoCapture(0)
 
 if not cap.isOpened():
     print("Error: Could not access the webcam.")
     exit()
-
-# Speak the welcome message when the interface opens
-speak("Welcome to the Face Recognition Attendance App")
-
-print("Press 'r' to register a new face, or 'q' to quit.")
 
 while True:
     ret, frame = cap.read()
@@ -89,56 +92,57 @@ while True:
         print("Failed to capture frame. Exiting...")
         break
 
-    # Resize the frame for faster processing
     small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
     small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
-
-    # Detect faces and compute encodings
     face_locations = face_recognition.face_locations(small_frame)
     face_encodings = face_recognition.face_encodings(small_frame, face_locations)
 
     for face_encoding, face_location in zip(face_encodings, face_locations):
-        # Check if the face is already registered
         matches = face_recognition.compare_faces(known_encodings, face_encoding)
         face_distances = face_recognition.face_distance(known_encodings, face_encoding)
 
         if matches and any(matches):
             best_match_index = np.argmin(face_distances)
             name = known_names[best_match_index]
-
-            # Mark attendance
-            markAttendance(name)
-
-            # Draw rectangle and name on the face
             top, right, bottom, left = face_location
             top, right, bottom, left = top * 4, right * 4, bottom * 4, left * 4
+
+            # Draw rectangle around face
             cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
             cv2.putText(frame, name, (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+
+            # Detect eyes within the face region
+            roi_gray = cv2.cvtColor(frame[top:bottom, left:right], cv2.COLOR_BGR2GRAY)
+            eyes = eye_cascade.detectMultiScale(roi_gray)
+
+            # Blink detection logic
+            if len(eyes) >= 2:
+                if name not in blink_counters:
+                    blink_counters[name] = 0
+                    blink_states[name] = False
+
+                blink_counters[name] += 1
+                if blink_counters[name] >= CONSECUTIVE_FRAMES and not blink_states[name]:
+                    print(f"Blink detected for {name}. Marking attendance...")
+                    mark_attendance(name)
+                    blink_states[name] = True
+            else:
+                blink_counters[name] = 0
+                blink_states[name] = False
         else:
-            # If the face is not registered, prompt to register
             top, right, bottom, left = face_location
             top, right, bottom, left = top * 4, right * 4, bottom * 4, left * 4
             cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
-            cv2.putText(frame, "Press 'r' to Register", (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            cv2.putText(frame, "Unknown", (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
-    # Display the video feed
+    # Display the frame
     cv2.imshow('Attendance System', frame)
-
-    # Check for key presses
     key = cv2.waitKey(1) & 0xFF
-    if key == ord('q'):  # Quit
+    if key == ord('q'):
         break
-    elif key == ord('r'):  # Register new face
-        if face_locations:
-            register_face(frame, face_locations[0])
-        else:
-            print("No face detected for registration. Try again.")
 
-# Release the webcam and close the window
+# Release the video capture and save attendance
 cap.release()
 cv2.destroyAllWindows()
+save_attendance()
 
-# Save attendance to a CSV file
-attendance_df = pd.DataFrame(attendance_log, columns=["Name", "Time"])
-attendance_df.to_csv(ATTENDANCE_FILE, index=False)
-print(f"Attendance saved to: {os.path.abspath(ATTENDANCE_FILE)}")

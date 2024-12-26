@@ -32,21 +32,39 @@ else:
     known_encodings = []
     known_names = []
 
+# Function to show the welcome screen
 def show_welcome_screen():
+    # Create a black image to display the welcome screen
     welcome_screen = np.zeros((500, 800, 3), dtype=np.uint8)
+
+    # Define the text to be displayed
     text = "Welcome to the Face Recognition Attendance App"
+
+    # Set font properties
     font = cv2.FONT_HERSHEY_SIMPLEX
     font_scale = 1
-    color = (255, 255, 255)  # White
+    color = (255, 255, 255)  # White color
     thickness = 2
+
+    # Calculate the position of the text to center it on the screen
     text_size = cv2.getTextSize(text, font, font_scale, thickness)[0]
     text_x = (welcome_screen.shape[1] - text_size[0]) // 2
     text_y = (welcome_screen.shape[0] + text_size[1]) // 2
+
+    # Add the text to the welcome screen
     cv2.putText(welcome_screen, text, (text_x, text_y), font, font_scale, color, thickness)
+
+    # Display the welcome screen
     cv2.imshow('Welcome Screen', welcome_screen)
+
+    # Speak the welcome message
     speak("Welcome to the Face Recognition Attendance App")
-    cv2.waitKey(3000)
-    cv2.destroyWindow('Welcome Screen')
+
+    # Wait for 5 seconds (5000 milliseconds) before closing the window
+    cv2.waitKey(5000)  # This ensures the window stays open for 5 seconds
+
+    # Destroy the window after the wait time
+    cv2.destroyAllWindows()  # This ensures all windows are closed properly
 
 
 # Function to mark attendance
@@ -85,6 +103,9 @@ cap = cv2.VideoCapture(0)
 if not cap.isOpened():
     print("Error: Could not access the webcam.")
     exit()
+
+# Show the welcome screen before starting the main loop
+show_welcome_screen()
 
 while True:
     ret, frame = cap.read()
@@ -145,4 +166,3 @@ while True:
 cap.release()
 cv2.destroyAllWindows()
 save_attendance()
-

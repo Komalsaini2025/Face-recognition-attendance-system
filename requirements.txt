@@ -1,3 +1,4 @@
+face recognition
 streamlit
 joblib
 Pillow
@@ -10,7 +11,6 @@ playsound==1.2.2
 pygame
 pyttsx3
 speechrecognition
-face recognition
 requests
 google-generativeai
 

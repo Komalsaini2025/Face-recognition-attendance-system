@@ -1,9 +1,15 @@
 streamlit
-opencv-python-headless
+joblib
+Pillow
+streamlit-option-menu
 numpy
-pandas
-face_recognition
-
-
-
+opencv-python
+tensorflow
+gtts
+playsound==1.2.2
+pygame
+pyttsx3
+speechrecognition
+requests
+google-generativeai
 
